@@ -5,6 +5,7 @@ use std::io::prelude::*;
 mod code;
 mod models;
 mod render;
+mod rss;
 mod schema;
 
 use models::Post;
@@ -126,6 +127,9 @@ fn render_all(db: &PgConnection) -> AResult<()> {
     options.copy_inside = true;
     options.content_only = true;
     copy("static_html", "html", &options)?;
+
+    let rss = rss::create_feed(db)?;
+    std::fs::write("html/rss.xml", rss)?;
 
     let pages = posts.filter(published).load::<Post>(db)?;
     for page in pages.iter() {

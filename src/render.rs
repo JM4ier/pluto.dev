@@ -1,7 +1,14 @@
 use super::*;
+use pulldown_cmark::*;
+
+pub fn render_raw(post: &str) -> String {
+    let parser = Parser::new(post);
+    let mut html = String::new();
+    html::push_html(&mut html, parser);
+    html
+}
 
 fn render_markdown(post: &str) -> String {
-    use pulldown_cmark::*;
     let parser = Parser::new(post);
 
     let mut code_lang = None;

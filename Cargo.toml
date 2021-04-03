@@ -16,3 +16,4 @@ dotenv = "0.15"
 chrono = "0.4"
 clap = "2.3"
 fs_extra = "1.2"
+quick-xml = { version = "0.22", features = ["serialize"] }

@@ -19,8 +19,6 @@ pub struct Post {
     pub content: String,
 }
 
-impl Post {}
-
 fn now() -> NaiveDateTime {
     chrono::Local::now().naive_utc()
 }
