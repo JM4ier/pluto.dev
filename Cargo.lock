@@ -325,7 +325,6 @@ dependencies = [
  "serde",
  "serde_yaml",
  "syntect",
- "walkdir",
 ]
 
 [[package]]

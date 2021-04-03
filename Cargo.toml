@@ -14,5 +14,4 @@ serde_yaml = "0.8"
 diesel = { version = "1.4", features = ["postgres", "chrono"] }
 dotenv = "0.15"
 chrono = "0.4"
-walkdir = "2.3"
 clap = "2.3"
