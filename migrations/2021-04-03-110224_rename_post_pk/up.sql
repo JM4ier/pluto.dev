@@ -1,0 +1,2 @@
+ALTER TABLE posts
+RENAME COLUMN path TO url;

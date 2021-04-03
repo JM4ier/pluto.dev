@@ -1,10 +1,11 @@
 table! {
-    posts (path) {
-        path -> Varchar,
+    posts (url) {
+        url -> Varchar,
         title -> Varchar,
         version -> Varchar,
         published -> Bool,
         created -> Timestamp,
-        updated -> Nullable<Timestamp>,
+        updated -> Timestamp,
+        content -> Text,
     }
 }

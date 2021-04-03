@@ -25,20 +25,6 @@ pub fn establish_connection() -> PgConnection {
     PgConnection::establish(&db_url).expect(&format!("Error connecting to {}", db_url))
 }
 
-fn open_md(path: &str) -> AResult<(Post, String)> {
-    let mut file = File::open(path)?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)?;
-
-    let mut parts = content.split("---");
-    parts.next().ok_or("missing metadata")?;
-    let meta = parts.next().ok_or("missing metadata")?;
-    let markdown = parts.collect::<Vec<_>>().join("---");
-
-    let meta = serde_yaml::from_str(meta)?;
-    Ok((meta, markdown))
-}
-
 fn files(path: &str) -> Vec<String> {
     WalkDir::new(path)
         .into_iter()
@@ -48,8 +34,9 @@ fn files(path: &str) -> Vec<String> {
         .collect()
 }
 
-fn to_html(meta: &Post, markdown: &str, db: &PgConnection) -> AResult<String> {
-    let parser = Parser::new(&markdown);
+fn to_html(meta: &Post, db: &PgConnection) -> AResult<String> {
+    let markdown = &meta.content;
+    let parser = Parser::new(markdown);
 
     let mut code_lang = None;
 
@@ -82,7 +69,7 @@ fn to_html(meta: &Post, markdown: &str, db: &PgConnection) -> AResult<String> {
         include_str!("skeleton.html"),
         body = html_out,
         title = meta.title,
-        copyright = copyright_years(&meta.created, &meta.updated.unwrap_or(meta.created)),
+        copyright = copyright_years(&meta.created, &meta.updated),
         bottom_navigation = bottom_navigation(meta, db)?,
     ))
 }
@@ -124,11 +111,10 @@ fn bottom_navigation(this: &Post, db: &PgConnection) -> AResult<String> {
         .limit(1)
         .load::<Post>(db)?;
 
-    let link = |dir, linked| {
+    let link = |dir, linked: &Post| {
         format!(
             r#" <a href="{}" class="bottom-nav-button">{}</a> "#,
-            this.relative_link_to(linked),
-            dir
+            linked.url, dir
         )
     };
 
@@ -150,12 +136,6 @@ fn bottom_navigation(this: &Post, db: &PgConnection) -> AResult<String> {
     Ok(links)
 }
 
-fn render(meta: &Post, content: &str, db: &PgConnection) -> AResult<()> {
-    let rendered = to_html(meta, content, db)?;
-    std::fs::write(meta.out_path(), rendered)?;
-    Ok(())
-}
-
 fn render_overview(db: &PgConnection) -> AResult<()> {
     let mut body = String::from("<h1>Blog Posts</h1>");
     body += "<hr>";
@@ -171,7 +151,7 @@ fn render_overview(db: &PgConnection) -> AResult<()> {
     for site in sites.iter() {
         body += &format!(
             r#"<tr><td><a href="{}">{}</a></td><td>{}</td></tr>"#,
-            site.file_name(),
+            site.url,
             site.title,
             site.created.date().format("%d-%m-%Y")
         );
@@ -198,49 +178,164 @@ fn process(file: &str, db: &PgConnection, force_render: bool) -> AResult<()> {
     use crate::schema::posts::dsl::*;
     use diesel::dsl::*;
 
-    let (mut meta, content) = open_md(file)?;
-    meta.path = file.into();
+    let mut meta = read_md(file)?;
+    meta.url = file.into();
 
-    let existing = posts
-        .filter(path.eq(&meta.path))
-        .limit(1)
-        .load::<Post>(db)?;
+    let existing = posts.filter(url.eq(&meta.url)).limit(1).load::<Post>(db)?;
 
     if let Some(entry) = existing.first() {
-        meta.updated = Some(meta.created);
+        meta.updated = meta.created;
         meta.created = entry.created;
 
         if meta.version == entry.version {
             if force_render && meta.published {
-                render(&meta, &content, db)?;
+                //render(&meta, db)?;
             }
             return Ok(());
         }
     }
 
-    delete(posts.filter(path.eq(&meta.path))).execute(db)?;
+    delete(posts.filter(url.eq(&meta.url))).execute(db)?;
     insert_into(schema::posts::table)
         .values(&meta)
         .execute(db)?;
 
-    println!("inserting or updating `{}`.", meta.path);
+    println!("inserting or updating `{}`.", meta.url);
 
     if meta.published {
-        render(&meta, &content, db)?;
+        //render(&meta, db)?;
     }
 
     Ok(())
 }
 
-fn main() -> AResult<()> {
-    let files = files("blog");
-    let db = establish_connection();
-    for _ in 0..2 {
-        for file in files.iter() {
-            println!("processing `{}`", file);
-            process(file, &db, true)?;
+fn read_md(path: &str) -> AResult<Post> {
+    let mut file = File::open(path)?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)?;
+
+    let mut parts = content.split("---");
+    parts.next().ok_or("missing metadata")?;
+    let meta = parts.next().ok_or("missing metadata")?;
+    let markdown = parts.collect::<Vec<_>>().join("---");
+
+    let mut meta = serde_yaml::from_str::<Post>(meta)?;
+    meta.content = markdown;
+    Ok(meta)
+}
+
+fn write_md(path: &str, post: &Post) -> AResult<()> {
+    let mut buffer = serde_yaml::to_string(post)?;
+    buffer += &format!("---{}", post.content);
+    std::fs::write(path, buffer)?;
+    Ok(())
+}
+
+fn open_editor(path: &str) -> AResult<()> {
+    std::process::Command::new("/usr/bin/sh")
+        .arg("-c")
+        .arg(format!("vim {}", path))
+        .spawn()?
+        .wait()?;
+    Ok(())
+}
+
+fn edit(post: &str, db: &PgConnection) -> AResult<()> {
+    use crate::schema::posts::dsl::*;
+    use diesel::dsl::*;
+
+    let entry = posts.filter(url.eq(post)).load::<Post>(db)?;
+
+    let edit_path = ".edit.md";
+
+    if let Some(entry) = entry.first() {
+        write_md(edit_path, entry)?;
+    } else {
+        std::fs::write(edit_path, "")?;
+    }
+
+    let mut edited = loop {
+        open_editor(edit_path)?;
+        match read_md(edit_path) {
+            Ok(post) => break post,
+            Err(err) => {
+                eprintln!("{}", err);
+                eprintln!("Press enter to fix the file.");
+                std::io::stdin().read_line(&mut String::new()).ok();
+            }
         }
-        render_overview(&db)?;
+    };
+
+    edited.url = post.into();
+
+    if let Some(entry) = entry.first() {
+        // keep original creation date
+        edited.created = entry.created;
+    }
+
+    delete(posts.filter(url.eq(post))).execute(db)?;
+    insert_into(schema::posts::table)
+        .values(edited)
+        .execute(db)?;
+
+    Ok(())
+}
+
+fn list(filter: &str, db: &PgConnection) -> AResult<()> {
+    use crate::schema::posts::dsl::*;
+
+    let filter = format!("%{}%", filter);
+    let entries = posts.filter(url.like(filter)).limit(100).load::<Post>(db)?;
+
+    println!("{:>24}: {}", "URL", "TITLE");
+    for entry in entries.iter() {
+        println!("{:>24}: {}", entry.url, entry.title);
+    }
+
+    Ok(())
+}
+
+fn render_all(db: &PgConnection) -> AResult<()> {
+    Ok(())
+}
+
+use clap::{App, Arg};
+fn main() -> AResult<()> {
+    let matches = App::new("Website Manager")
+        .arg(
+            Arg::with_name("edit")
+                .short("e")
+                .long("edit")
+                .value_name("POST")
+                .help("Edits a post.")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("list")
+                .short("l")
+                .long("list")
+                .help("Displays posts.")
+                .value_name("FILTER")
+                .default_value("")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("render")
+                .short("r")
+                .long("render")
+                .help("Renders all posts.")
+                .takes_value(false),
+        )
+        .get_matches();
+
+    let connection = establish_connection();
+
+    if let Some(post) = matches.value_of("edit") {
+        edit(post, &connection)?;
+    } else if let Some(filter) = matches.value_of("list") {
+        list(filter, &connection)?;
+    } else if matches.is_present("render") {
+        render_all(&connection)?;
     }
     Ok(())
 }
