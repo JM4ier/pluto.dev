@@ -1,0 +1,78 @@
+html {
+    font-family: 'Source Code Pro', monospace;
+}
+
+:root {
+    --text-color: #696969;
+    --high-color: #969696;
+    --link-color: #627b94;
+    --back-color: #1c1c1c;
+    --code-color: #62946f;
+    --cobg-color: #202020;
+    --sele-color: #ffffff10;
+    --foot-color: #191919;
+
+    --footer-height: 80px;
+}
+
+body {
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body {
+    background-color: var(--back-color);
+    color: var(--text-color);
+    font-size: 12pt;
+    margin: 0;
+}
+
+div#container>main {
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+    max-width: 800px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-size: 12pt;
+    font-weight: bold;
+    color: var(--high-color);
+}
+
+h1 {
+    font-size: 16pt;
+}
+
+a {
+    color: var(--link-color);
+}
+
+code {
+    color: var(--code-color);
+}
+
+div.code {
+    border-left: solid 1px var(--text-color);
+    background: var(--cobg-color);
+}
+
+div.code>pre {
+    padding: 8px;
+    font-size: 11pt;
+}
+
+::selection {
+    background: var(--sele-color);
+}
+
+#footer {
+    padding-top: 10px;
+    background: var(--foot-color);
+    text-align: center;
+    width: 100%;
+    margin-top: auto;
+    height: var(--footer-height);
+}

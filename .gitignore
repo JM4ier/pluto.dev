@@ -1,4 +1,5 @@
 /target
 .env
 /html
+/blog
 *.md

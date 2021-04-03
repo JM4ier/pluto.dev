@@ -24,7 +24,7 @@ pub fn establish_connection() -> PgConnection {
     PgConnection::establish(&db_url).expect(&format!("Error connecting to {}", db_url))
 }
 
-fn read_md(path: &str) -> AResult<Post> {
+fn read_post_from_file(path: &str) -> AResult<Post> {
     let mut file = File::open(path)?;
     let mut content = String::new();
     file.read_to_string(&mut content)?;
@@ -39,7 +39,7 @@ fn read_md(path: &str) -> AResult<Post> {
     Ok(meta)
 }
 
-fn write_md(path: &str, post: &Post) -> AResult<()> {
+fn write_post_to_file(path: &str, post: &Post) -> AResult<()> {
     let mut buffer = serde_yaml::to_string(post)?;
     buffer += &format!("---{}", post.content);
     std::fs::write(path, buffer)?;
@@ -64,14 +64,14 @@ fn edit(post: &str, db: &PgConnection) -> AResult<()> {
     let edit_path = ".edit.md";
 
     if let Some(entry) = entry.first() {
-        write_md(edit_path, entry)?;
+        write_post_to_file(edit_path, entry)?;
     } else {
         std::fs::write(edit_path, "")?;
     }
 
     let mut edited = loop {
         open_editor(edit_path)?;
-        match read_md(edit_path) {
+        match read_post_from_file(edit_path) {
             Ok(post) => break post,
             Err(err) => {
                 eprintln!("{}", err);
@@ -100,11 +100,17 @@ fn list(filter: &str, db: &PgConnection) -> AResult<()> {
     use crate::schema::posts::dsl::*;
 
     let filter = format!("%{}%", filter);
-    let entries = posts.filter(url.like(filter)).limit(100).load::<Post>(db)?;
+    let entries = posts
+        .filter(url.like(filter))
+        .order_by(created.desc())
+        .limit(100)
+        .load::<Post>(db)?;
 
-    println!("{:>24}: {}", "URL", "TITLE");
+    println!("{:^25} | {:^10} | {:^50}", "URL", "PUBLISHED", "TITLE");
+    println!("{:-^25}-+-{:-^10}-+-{:-^50}", "", "", "");
     for entry in entries.iter() {
-        println!("{:>24}: {}", entry.url, entry.title);
+        let publ = if entry.published { "yes" } else { "no" };
+        println!("{:^25} | {:^10} | {:^50}", entry.url, publ, entry.title);
     }
 
     Ok(())
@@ -112,8 +118,16 @@ fn list(filter: &str, db: &PgConnection) -> AResult<()> {
 
 fn render_all(db: &PgConnection) -> AResult<()> {
     use crate::schema::posts::dsl::*;
-    let pages = posts.filter(published).load::<Post>(db)?;
+    use fs_extra::dir::{copy, CopyOptions};
 
+    std::fs::remove_dir_all("html").ok();
+    std::fs::create_dir("html")?;
+    let mut options = CopyOptions::new();
+    options.copy_inside = true;
+    options.content_only = true;
+    copy("static_html", "html", &options)?;
+
+    let pages = posts.filter(published).load::<Post>(db)?;
     for page in pages.iter() {
         println!("rendering {}.", page.url);
         let rendered = render::blogpost(page, db)?;
