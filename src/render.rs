@@ -135,6 +135,8 @@ pub fn overview(db: &PgConnection) -> AResult<String> {
         );
     }
     body += "</table>";
+    body += "<hr>";
+    body += &crate::polyring::BANNER;
 
     let page = format!(
         include_str!("skeleton.html"),
