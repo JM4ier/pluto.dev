@@ -64,7 +64,7 @@ pub fn create_feed(db: &PgConnection) -> AResult<String> {
     let channel = Channel {
         title: "Jonas' personal website".into(),
         link: url.into(),
-        description: "Here I'll post stuff from time to time.".into(),
+        description: "Technology and Coding blog".into(),
         items,
     };
 
