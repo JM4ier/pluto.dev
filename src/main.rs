@@ -123,8 +123,6 @@ fn render_all(db: &PgConnection) -> AResult<()> {
     use crate::schema::posts::dsl::*;
     use fs_extra::dir::{copy, CopyOptions};
 
-    println!("{:#?}", *polyring::MEMBERS);
-
     std::fs::remove_dir_all("html").ok();
     std::fs::create_dir("html")?;
     let mut options = CopyOptions::new();
