@@ -105,8 +105,24 @@ fn bottom_navigation(this: &Post, db: &PgConnection) -> AResult<String> {
     Ok(links)
 }
 
+fn tag_list(post_url: &str, db: &PgConnection) -> AResult<String> {
+    use crate::schema::tags::dsl::*;
+    let tag_urls = tags
+        .filter(url.eq(post_url))
+        .load::<models::Tag>(db)?
+        .into_iter()
+        .map(|t| t.link())
+        .collect::<String>();
+    if tag_urls.len() == 0 {
+        Ok(String::new())
+    } else {
+        Ok(format!("<br><strong>Tags:</strong> {}<br>", tag_urls))
+    }
+}
+
 pub fn blogpost(post: &Post, db: &PgConnection) -> AResult<String> {
-    let html = render_markdown(&post.content);
+    let mut html = render_markdown(&post.content);
+    html += &tag_list(&post.url, db)?;
     Ok(format!(
         include_str!("skeleton.html"),
         body = html,
@@ -116,28 +132,38 @@ pub fn blogpost(post: &Post, db: &PgConnection) -> AResult<String> {
     ))
 }
 
+fn tag_overview(db: &PgConnection) -> AResult<String> {
+    use crate::schema::tags::dsl::*;
+
+    let t = tags
+        .distinct_on(tag)
+        .order_by(tag)
+        .load::<models::Tag>(db)?;
+
+    let mut buf = String::from("<h1>Posts sorted by tags</h1>");
+
+    buf += "<ul>";
+    for t in t.into_iter() {
+        buf += &format!("<li>{}</li>", t.link());
+    }
+    buf += "</ul>";
+
+    Ok(buf)
+}
+
 pub fn overview(db: &PgConnection) -> AResult<String> {
     let mut body = String::from("<h1>Blog Posts</h1>");
-    body += "<hr>";
 
     use crate::schema::posts::dsl::*;
     let sites = posts
         .filter(published)
         .order_by(created.desc())
-        .load::<Post>(db)?;
+        .select((title, url, created))
+        .load(db)?;
 
-    body += r#"<table class="post-list">"#;
-    body += "<th>Post</th><th>Date</th>";
-    for site in sites.iter() {
-        body += &format!(
-            r#"<tr><td><a href="{}">{}</a></td><td>{}</td></tr>"#,
-            PageKind::Post.url_of(&site.url),
-            site.title,
-            site.created.date().format("%d-%m-%Y")
-        );
-    }
-    body += "</table>";
-    body += "<hr>";
+    body += &create_table(&sites);
+    body += &tag_overview(db)?;
+
     body += &crate::polyring::BANNER;
 
     let page = format!(
@@ -145,11 +171,50 @@ pub fn overview(db: &PgConnection) -> AResult<String> {
         title = "Overview",
         body = body,
         bottom_navigation = "",
-        copyright = copyright_years(
-            &sites.last().unwrap().created,
-            &sites.first().unwrap().created
-        )
+        copyright = copyright_years(&sites.last().unwrap().2, &sites.first().unwrap().2)
     );
 
+    Ok(page)
+}
+
+fn create_table(posts: &[(String, String, NaiveDateTime)]) -> String {
+    let mut body = String::from("<hr>");
+    body += r#"<table class="post-list">"#;
+    body += "<th>Post</th><th>Date</th>";
+    for (title, url, created) in posts.iter() {
+        body += &format!(
+            r#"<tr><td><a href="{}">{}</a></td><td>{}</td></tr>"#,
+            PageKind::Post.url_of(&url),
+            &title,
+            created.date().format("%d-%m-%Y")
+        );
+    }
+    body += "</table><hr>";
+    body
+}
+
+pub fn tag(name: &str, db: &PgConnection) -> AResult<String> {
+    let title = format!("Posts with tag {}", name.to_uppercase());
+    let mut body = format!("<h1>{}</h1>", title);
+
+    use crate::schema::posts::dsl as p;
+    use crate::schema::tags::dsl as t;
+    let sites = t::tags
+        .inner_join(p::posts.on(p::url.eq(t::url)))
+        .filter(p::published)
+        .filter(t::tag.eq(name))
+        .order_by(p::created.desc())
+        .select((p::title, p::url, p::created))
+        .load(db)?;
+
+    body += &create_table(&sites);
+
+    let page = format!(
+        include_str!("skeleton.html"),
+        title = title,
+        body = body,
+        bottom_navigation = "",
+        copyright = ""
+    );
     Ok(page)
 }

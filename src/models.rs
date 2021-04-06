@@ -1,6 +1,7 @@
 use super::schema::*;
 use super::*;
 use chrono::NaiveDateTime;
+use org::*;
 
 #[derive(Queryable, Insertable, Debug, PartialEq, Eq)]
 #[table_name = "posts"]
@@ -43,7 +44,27 @@ impl Post {
         {
             Ok(post)
         } else {
-            Err(format!("no post with name {}.", name))?
+            Err(format!("no post with name `{}`.", name))?
         }
+    }
+}
+
+impl Linkable for Post {
+    fn link(&self) -> String {
+        format!(
+            r#"<a href="{}">{}</a>"#,
+            PageKind::Post.url_of(&self.url),
+            self.title
+        )
+    }
+}
+
+impl Linkable for Tag {
+    fn link(&self) -> String {
+        format!(
+            r#"<a href="{}">{}</a> "#,
+            PageKind::Tag.url_of(&self.tag),
+            self.tag.to_uppercase(),
+        )
     }
 }

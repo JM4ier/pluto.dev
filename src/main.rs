@@ -71,9 +71,19 @@ fn render_all(db: &PgConnection) -> AResult<()> {
 
     let pages = posts.filter(published).load::<Post>(db)?;
     for page in pages.iter() {
-        println!("rendering {}.", page.url);
+        println!("rendering page {}.", page.url);
         let rendered = render::blogpost(page, db)?;
         std::fs::write(PageKind::Post.path_of(&page.url), rendered)?;
+    }
+
+    let tags = {
+        use schema::tags::dsl::*;
+        tags.distinct_on(tag).select(tag).load::<String>(db)?
+    };
+    for tag in tags.iter() {
+        println!("rendering tag {}.", tag);
+        let rendered = render::tag(&tag, db)?;
+        std::fs::write(PageKind::Tag.path_of(&tag), rendered)?;
     }
 
     println!("rendering overview.");

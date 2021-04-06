@@ -24,3 +24,7 @@ impl PageKind {
         vec![Self::Post, Self::Tag]
     }
 }
+
+pub trait Linkable {
+    fn link(&self) -> String;
+}
