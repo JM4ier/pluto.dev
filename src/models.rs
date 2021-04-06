@@ -1,24 +1,49 @@
-use super::schema::posts;
+use super::schema::*;
+use super::*;
 use chrono::NaiveDateTime;
-use serde::{Deserialize, Serialize};
 
-#[derive(Queryable, Insertable, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Queryable, Insertable, Debug, PartialEq, Eq)]
 #[table_name = "posts"]
 pub struct Post {
-    #[serde(skip, default)]
     pub url: String,
     pub title: String,
-    #[serde(default)]
     pub version: String,
     pub published: bool,
-    #[serde(skip, default = "now")]
     pub created: NaiveDateTime,
-    #[serde(skip, default = "now")]
     pub updated: NaiveDateTime,
-    #[serde(skip, default)]
     pub content: String,
 }
 
-fn now() -> NaiveDateTime {
+pub fn now() -> NaiveDateTime {
     chrono::Local::now().naive_utc()
+}
+
+#[derive(Queryable, Insertable, Debug, PartialEq, Eq)]
+#[table_name = "tags"]
+pub struct Tag {
+    pub tag: String,
+    pub url: String,
+}
+
+#[derive(Queryable, Insertable, Debug, PartialEq, Eq)]
+#[table_name = "tags_meta"]
+pub struct TagMeta {
+    pub tag: String,
+    pub display: bool,
+}
+
+impl Post {
+    pub fn load_from_db(name: &str, db: &PgConnection) -> AResult<Self> {
+        use crate::schema::posts::dsl::*;
+        if let Some(post) = posts
+            .filter(url.eq(name))
+            .load::<models::Post>(db)?
+            .into_iter()
+            .next()
+        {
+            Ok(post)
+        } else {
+            Err(format!("no post with name {}.", name))?
+        }
+    }
 }
