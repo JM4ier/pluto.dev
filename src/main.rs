@@ -6,12 +6,14 @@ mod code;
 mod config;
 mod editing;
 mod models;
+mod org;
 mod polyring;
 mod render;
 mod rss;
 mod schema;
 
 use models::Post;
+use org::*;
 
 #[macro_use]
 extern crate diesel;
@@ -54,6 +56,11 @@ fn render_all(db: &PgConnection) -> AResult<()> {
 
     std::fs::remove_dir_all("html").ok();
     std::fs::create_dir("html")?;
+
+    for kind in PageKind::kinds() {
+        std::fs::create_dir(kind.dir())?;
+    }
+
     let mut options = CopyOptions::new();
     options.copy_inside = true;
     options.content_only = true;
@@ -66,7 +73,7 @@ fn render_all(db: &PgConnection) -> AResult<()> {
     for page in pages.iter() {
         println!("rendering {}.", page.url);
         let rendered = render::blogpost(page, db)?;
-        std::fs::write(format!("html/{}", page.url), rendered)?;
+        std::fs::write(PageKind::Post.path_of(&page.url), rendered)?;
     }
 
     println!("rendering overview.");

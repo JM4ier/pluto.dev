@@ -1,4 +1,5 @@
 use super::*;
+use org::*;
 use pulldown_cmark::*;
 
 pub fn render_raw(post: &str) -> String {
@@ -81,7 +82,8 @@ fn bottom_navigation(this: &Post, db: &PgConnection) -> AResult<String> {
     let link = |dir, linked: &Post| {
         format!(
             r#" <a href="{}" class="bottom-nav-button">{}</a> "#,
-            linked.url, dir
+            PageKind::Post.url_of(&linked.url),
+            dir
         )
     };
 
@@ -129,7 +131,7 @@ pub fn overview(db: &PgConnection) -> AResult<String> {
     for site in sites.iter() {
         body += &format!(
             r#"<tr><td><a href="{}">{}</a></td><td>{}</td></tr>"#,
-            site.url,
+            PageKind::Post.url_of(&site.url),
             site.title,
             site.created.date().format("%d-%m-%Y")
         );
