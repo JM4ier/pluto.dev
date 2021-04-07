@@ -1,5 +1,6 @@
 use super::*;
 use crate::schema::posts::dsl::{created, posts, published};
+use org::*;
 use quick_xml::se::to_string;
 use serde::Serialize;
 
@@ -40,7 +41,7 @@ struct Item {
 }
 
 pub fn create_feed(db: &PgConnection) -> AResult<String> {
-    let url = "https://pluto.dev/";
+    let url = "https://pluto.dev";
     let items = posts
         .filter(published)
         .order_by(created.desc())
@@ -48,7 +49,7 @@ pub fn create_feed(db: &PgConnection) -> AResult<String> {
         .load::<Post>(db)?
         .into_iter()
         .map(|item| {
-            let link = BString::from(format!("{}{}", url, item.url));
+            let link = BString::from(format!("{}{}", url, PageKind::Post.url_of(&item.url)));
             let pub_date = format!("{}", item.created.format("%a, %d %b %Y %H:%M:%S")).into();
             let description = crate::render::render_raw(&item.content).into();
             Item {

@@ -66,6 +66,7 @@ fn render_all(db: &PgConnection) -> AResult<()> {
     options.content_only = true;
     copy("static_html", "html", &options)?;
 
+    println!("rendering rss.");
     let rss = rss::create_feed(db)?;
     std::fs::write("html/rss.xml", rss)?;
 

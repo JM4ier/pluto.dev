@@ -162,7 +162,7 @@ pub fn overview(db: &PgConnection) -> AResult<String> {
         .load(db)?;
 
     body += &create_table(&sites);
-    body += &tag_overview(db)?;
+    //body += &tag_overview(db)?;
 
     body += &crate::polyring::BANNER;
 
