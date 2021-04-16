@@ -1,0 +1,8 @@
+#! /bin/bash
+
+render-loop() {
+    find src static_html | entr -c cargo run -- --render
+}
+
+render-loop &
+python -m http.server --directory html

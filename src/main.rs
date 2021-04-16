@@ -124,8 +124,9 @@ fn main() -> AResult<()> {
         synopsis "This is a tool to manage the website hosted on pluto.dev.";
         opt edit: Option<String>,   desc: "Edit a post";
         opt list: Option<String>,   desc: "Display a list of recent posts.";
-        opt render: bool,           desc: "Renders the website and transfers it to the server.";
+        opt render: bool,           desc: "Renders the website.";
         opt tag: Option<String>,    desc: "Edit the description of a tag.";
+        opt send: bool,             desc: "Transfers the files to the server.";
     }
     .parse_or_exit();
 
@@ -137,9 +138,11 @@ fn main() -> AResult<()> {
         editing::edit_tag(&tag, &connection)?;
     } else if args.render {
         render_all(&connection)?;
-        transfer()?;
     } else if let Some(filter) = args.list {
         list(&filter, &connection)?;
+    }
+    if args.send {
+        transfer()?;
     }
     Ok(())
 }

@@ -29,9 +29,10 @@ body {
     margin: 0;
 }
 
-div#container>main {
+div#container>#main {
     margin-left: auto;
     margin-right: auto;
+    padding-bottom: 5px;
     display: block;
     max-width: 800px;
 }
@@ -70,11 +71,12 @@ div.code>pre {
 
 #footer {
     padding-top: 10px;
+    padding-bottom: 10px;
     background: var(--foot-color);
     text-align: center;
     width: 100%;
     margin-top: auto;
-    height: var(--footer-height);
+    min-height: var(--footer-height);
 }
 
 #footer>p {
