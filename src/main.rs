@@ -98,6 +98,7 @@ fn transfer() -> AResult<()> {
     use config::CONFIG;
     use std::process::Command;
 
+    println!("Removing old files");
     Command::new("/usr/bin/ssh")
         .arg(&CONFIG.ssh_url)
         .arg("rm")
@@ -106,6 +107,7 @@ fn transfer() -> AResult<()> {
         .spawn()?
         .wait()?;
 
+    println!("Transferring new files");
     Command::new("/usr/bin/scp")
         .arg("-r")
         .arg("html")
