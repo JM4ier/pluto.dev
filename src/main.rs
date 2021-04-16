@@ -78,8 +78,8 @@ fn render_all(db: &PgConnection) -> AResult<()> {
     }
 
     let tags = {
-        use schema::tags::dsl::*;
-        tags.distinct_on(tag).select(tag).load::<String>(db)?
+        use schema::tags_meta::dsl::*;
+        tags_meta.select(tag).load::<String>(db)?
     };
     for tag in tags.iter() {
         println!("rendering tag {}.", tag);
@@ -121,12 +121,22 @@ fn main() -> AResult<()> {
                 .help("Renders all posts.")
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("tag")
+                .short("t")
+                .long("tag")
+                .value_name("TAG")
+                .help("edits a tag.")
+                .takes_value(true),
+        )
         .get_matches();
 
     let connection = establish_connection();
 
     if let Some(post) = matches.value_of("edit") {
-        editing::edit(post, &connection)?;
+        editing::edit_post(post, &connection)?;
+    } else if let Some(tag) = matches.value_of("tag") {
+        editing::edit_tag(tag, &connection)?;
     } else if matches.is_present("render") {
         render_all(&connection)?;
     } else if let Some(filter) = matches.value_of("list") {

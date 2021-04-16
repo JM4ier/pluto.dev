@@ -104,18 +104,17 @@ impl Post {
     }
 }
 
-fn open_editor(path: &str) -> AResult<()> {
+const EDIT_PATH: &str = ".edit.md";
+fn open_editor() -> AResult<()> {
     std::process::Command::new("/usr/bin/sh")
         .arg("-c")
-        .arg(format!("vim {}", path))
+        .arg(format!("vim {}", EDIT_PATH))
         .spawn()?
         .wait()?;
     Ok(())
 }
 
-pub fn edit(url: &str, db: &PgConnection) -> AResult<()> {
-    const EDIT_PATH: &str = ".edit.md";
-
+pub fn edit_post(url: &str, db: &PgConnection) -> AResult<()> {
     db.build_transaction().run(|| {
         match Post::new_from_db(url, db) {
             Ok(post) => post.write_to_file(EDIT_PATH)?,
@@ -123,7 +122,7 @@ pub fn edit(url: &str, db: &PgConnection) -> AResult<()> {
         }
 
         let edited = loop {
-            open_editor(EDIT_PATH)?;
+            open_editor()?;
             match Post::new_from_file(EDIT_PATH) {
                 Ok(post) => break post,
                 Err(err) => {
@@ -141,6 +140,34 @@ pub fn edit(url: &str, db: &PgConnection) -> AResult<()> {
         };
 
         edited.write_to_db(url, db)?;
+
+        Ok(())
+    })
+}
+
+pub fn edit_tag(name: &str, db: &PgConnection) -> AResult<()> {
+    use crate::models::*;
+    use crate::schema::tags_meta::dsl::*;
+    use diesel::dsl::*;
+
+    db.build_transaction().run(|| {
+        let meta = tags_meta.filter(tag.eq(name)).load::<TagMeta>(db)?;
+        let mut meta = meta.into_iter().next().unwrap_or(TagMeta {
+            tag: name.into(),
+            display: true,
+            description: String::from(""),
+        });
+
+        std::fs::write(EDIT_PATH, meta.description.as_bytes())?;
+        open_editor()?;
+        meta.description = std::fs::read_to_string(EDIT_PATH)?;
+
+        insert_into(tags_meta)
+            .values(&meta)
+            .on_conflict(tag)
+            .do_update()
+            .set(&meta)
+            .execute(db)?;
 
         Ok(())
     })

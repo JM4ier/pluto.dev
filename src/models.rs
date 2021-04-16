@@ -26,11 +26,12 @@ pub struct Tag {
     pub url: String,
 }
 
-#[derive(Queryable, Insertable, Debug, PartialEq, Eq)]
+#[derive(Queryable, Insertable, AsChangeset, Debug, PartialEq, Eq)]
 #[table_name = "tags_meta"]
 pub struct TagMeta {
     pub tag: String,
     pub display: bool,
+    pub description: String,
 }
 
 impl Post {

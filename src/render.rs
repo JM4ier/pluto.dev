@@ -199,6 +199,7 @@ pub fn tag(name: &str, db: &PgConnection) -> AResult<String> {
 
     use crate::schema::posts::dsl as p;
     use crate::schema::tags::dsl as t;
+    use crate::schema::tags_meta::dsl as m;
     let sites = t::tags
         .inner_join(p::posts.on(p::url.eq(t::url)))
         .filter(p::published)
@@ -207,6 +208,15 @@ pub fn tag(name: &str, db: &PgConnection) -> AResult<String> {
         .select((p::title, p::url, p::created))
         .load(db)?;
 
+    let description = m::tags_meta
+        .filter(m::tag.eq(name))
+        .select(m::description)
+        .load::<String>(db)?;
+    let description = description
+        .first()
+        .ok_or("not in meta table, something is wrong with db...")?;
+
+    body += &render_markdown(&description);
     body += &create_table(&sites);
 
     let page = format!(

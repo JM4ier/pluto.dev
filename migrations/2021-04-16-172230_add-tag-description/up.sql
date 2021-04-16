@@ -1,0 +1,2 @@
+ALTER TABLE tags_meta
+ADD COLUMN description TEXT NOT NULL DEFAULT '';

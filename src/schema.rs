@@ -21,8 +21,11 @@ table! {
     tags_meta (tag) {
         tag -> Varchar,
         display -> Bool,
+        description -> Text,
     }
 }
+
+joinable!(tags -> tags_meta (tag));
 
 allow_tables_to_appear_in_same_query!(
     posts,
