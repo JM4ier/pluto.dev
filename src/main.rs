@@ -118,54 +118,28 @@ fn transfer() -> AResult<()> {
     Ok(())
 }
 
-use clap::{App, Arg};
 fn main() -> AResult<()> {
-    let matches = App::new("Website Manager")
-        .arg(
-            Arg::with_name("edit")
-                .short("e")
-                .long("edit")
-                .value_name("POST")
-                .help("Edits a post.")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("list")
-                .short("l")
-                .long("list")
-                .help("Displays posts.")
-                .value_name("FILTER")
-                .default_value("")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("render")
-                .short("r")
-                .long("render")
-                .help("Renders all posts.")
-                .takes_value(false),
-        )
-        .arg(
-            Arg::with_name("tag")
-                .short("t")
-                .long("tag")
-                .value_name("TAG")
-                .help("edits a tag.")
-                .takes_value(true),
-        )
-        .get_matches();
+    use rustop::opts;
+    let (args, _) = opts! {
+        synopsis "This is a tool to manage the website hosted on pluto.dev.";
+        opt edit: Option<String>,   desc: "Edit a post";
+        opt list: Option<String>,   desc: "Display a list of recent posts.";
+        opt render: bool,           desc: "Renders the website and transfers it to the server.";
+        opt tag: Option<String>,    desc: "Edit the description of a tag.";
+    }
+    .parse_or_exit();
 
     let connection = establish_connection();
 
-    if let Some(post) = matches.value_of("edit") {
-        editing::edit_post(post, &connection)?;
-    } else if let Some(tag) = matches.value_of("tag") {
-        editing::edit_tag(tag, &connection)?;
-    } else if matches.is_present("render") {
+    if let Some(post) = args.edit {
+        editing::edit_post(&post, &connection)?;
+    } else if let Some(tag) = args.tag {
+        editing::edit_tag(&tag, &connection)?;
+    } else if args.render {
         render_all(&connection)?;
         transfer()?;
-    } else if let Some(filter) = matches.value_of("list") {
-        list(filter, &connection)?;
+    } else if let Some(filter) = args.list {
+        list(&filter, &connection)?;
     }
     Ok(())
 }
