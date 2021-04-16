@@ -1,6 +1,5 @@
 use crate::config::CONFIG;
 use lazy_static::lazy_static;
-use reqwest;
 use serde::Deserialize;
 use serde_json;
 
@@ -15,9 +14,10 @@ const DATA_URL: &str = "https://xyquadrat.ch/polyring/data/members.json";
 
 lazy_static! {
     pub static ref MEMBERS: Vec<Member> = {
-        let response = reqwest::blocking::get(DATA_URL)
+        let response = ureq::get(DATA_URL)
+            .call()
             .expect("fetching member data failed.")
-            .text()
+            .into_string()
             .unwrap();
         serde_json::from_str(&response).expect("incorrect json format.")
     };

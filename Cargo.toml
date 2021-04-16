@@ -18,5 +18,5 @@ chrono = "0.4"
 clap = "2.3"
 fs_extra = "1.2"
 quick-xml = { version = "0.22", features = ["serialize"] }
-reqwest = { version = "0.11", features = ["blocking", "native-tls"], default-features = false }
 lazy_static = "1.4"
+ureq = "2.1"
