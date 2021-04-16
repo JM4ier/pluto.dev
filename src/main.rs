@@ -94,6 +94,28 @@ fn render_all(db: &PgConnection) -> AResult<()> {
     Ok(())
 }
 
+fn transfer() -> AResult<()> {
+    use config::CONFIG;
+    use std::process::Command;
+
+    Command::new("/usr/bin/ssh")
+        .arg(&CONFIG.ssh_url)
+        .arg("rm")
+        .arg("-rf")
+        .arg("html")
+        .spawn()?
+        .wait()?;
+
+    Command::new("/usr/bin/scp")
+        .arg("-r")
+        .arg("html")
+        .arg(format!("{}:~", CONFIG.ssh_url))
+        .spawn()?
+        .wait()?;
+
+    Ok(())
+}
+
 use clap::{App, Arg};
 fn main() -> AResult<()> {
     let matches = App::new("Website Manager")
@@ -139,6 +161,7 @@ fn main() -> AResult<()> {
         editing::edit_tag(tag, &connection)?;
     } else if matches.is_present("render") {
         render_all(&connection)?;
+        transfer()?;
     } else if let Some(filter) = matches.value_of("list") {
         list(filter, &connection)?;
     }

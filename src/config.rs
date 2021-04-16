@@ -5,6 +5,7 @@ use serde_json;
 #[derive(Clone, Deserialize, Debug)]
 pub struct Config {
     pub url: String,
+    pub ssh_url: String,
 }
 
 lazy_static! {
