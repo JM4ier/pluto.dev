@@ -77,6 +77,10 @@ div.code>pre {
     height: var(--footer-height);
 }
 
+#footer>p {
+    margin-bottom: 0;
+}
+
 .webring-banner {
     margin: auto;
     margin-top: 100px;
