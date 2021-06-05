@@ -43,14 +43,18 @@ fn list(filter: &str, db: &PgConnection) -> AResult<()> {
     println!("{:^25} | {:^10} | {:^50}", "URL", "PUBLISHED", "TITLE");
     println!("{:-^25}-+-{:-^10}-+-{:-^50}", "", "", "");
     for entry in entries.iter() {
-        let publ = if entry.published { "yes" } else { "no" };
+        let publ = entry.published.map(|_| "yes").unwrap_or("no");
         println!("{:^25} | {:^10} | {:^50}", entry.url, publ, entry.title);
     }
 
     Ok(())
 }
 
-fn render_all(db: &PgConnection) -> AResult<()> {
+pub struct RenderConfig {
+    preview: bool,
+}
+
+fn render_all(db: &PgConnection, config: &RenderConfig) -> AResult<()> {
     use crate::schema::posts::dsl::*;
     use fs_extra::dir::{copy, CopyOptions};
 
@@ -70,7 +74,12 @@ fn render_all(db: &PgConnection) -> AResult<()> {
     let rss = rss::create_feed(db)?;
     std::fs::write("html/rss.xml", rss)?;
 
-    let pages = posts.filter(published).load::<Post>(db)?;
+    let pages = if config.preview {
+        posts.load::<Post>(db)?
+    } else {
+        posts.filter(published.is_not_null()).load::<Post>(db)?
+    };
+
     for page in pages.iter() {
         println!("rendering page {}.", page.url);
         let rendered = render::blogpost(page, db)?;
@@ -88,7 +97,7 @@ fn render_all(db: &PgConnection) -> AResult<()> {
     }
 
     println!("rendering overview.");
-    let overview = render::overview(db)?;
+    let overview = render::overview(db, config)?;
     std::fs::write("html/index.html", overview)?;
 
     Ok(())
@@ -127,6 +136,7 @@ fn main() -> AResult<()> {
         opt render: bool,           desc: "Renders the website.";
         opt tag: Option<String>,    desc: "Edit the description of a tag.";
         opt send: bool,             desc: "Transfers the files to the server.";
+        opt preview: bool,          desc: "Preview rendering: also renders unpublished posts";
     }
     .parse_or_exit();
 
@@ -134,14 +144,20 @@ fn main() -> AResult<()> {
 
     if let Some(post) = args.edit {
         editing::edit_post(&post, &connection)?;
-    } else if let Some(tag) = args.tag {
+    }
+    if let Some(tag) = args.tag {
         editing::edit_tag(&tag, &connection)?;
-    } else if args.render {
-        render_all(&connection)?;
-    } else if let Some(filter) = args.list {
+    }
+    if let Some(filter) = args.list {
         list(&filter, &connection)?;
     }
-    if args.send {
+    if args.render {
+        let config = RenderConfig {
+            preview: args.preview,
+        };
+        render_all(&connection, &config)?;
+    }
+    if args.send && !args.preview {
         transfer()?;
     }
     Ok(())

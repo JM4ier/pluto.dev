@@ -43,7 +43,7 @@ struct Item {
 pub fn create_feed(db: &PgConnection) -> AResult<String> {
     let url = "https://pluto.dev";
     let items = posts
-        .filter(published)
+        .filter(published.is_not_null())
         .order_by(created.desc())
         .limit(20)
         .load::<Post>(db)?

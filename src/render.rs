@@ -55,26 +55,28 @@ fn copyright_years(from: &NaiveDateTime, to: &NaiveDateTime) -> String {
 fn bottom_navigation(this: &Post, db: &PgConnection) -> AResult<String> {
     use crate::schema::posts::dsl::*;
 
+    let publ = published.is_not_null();
+
     let prev = posts
-        .filter(created.lt(&this.created).and(published))
+        .filter(created.lt(&this.created).and(publ))
         .order_by(created.desc())
         .limit(1)
         .load::<Post>(db)?;
 
     let next = posts
-        .filter(created.gt(&this.created).and(published))
+        .filter(created.gt(&this.created).and(publ))
         .order_by(created.asc())
         .limit(1)
         .load::<Post>(db)?;
 
     let first = posts
-        .filter(published)
+        .filter(publ)
         .order_by(created.asc())
         .limit(1)
         .load::<Post>(db)?;
 
     let last = posts
-        .filter(published)
+        .filter(publ)
         .order_by(created.desc())
         .limit(1)
         .load::<Post>(db)?;
@@ -151,33 +153,40 @@ fn tag_overview(db: &PgConnection) -> AResult<String> {
     Ok(buf)
 }
 
-pub fn overview(db: &PgConnection) -> AResult<String> {
+pub fn overview(db: &PgConnection, config: &super::RenderConfig) -> AResult<String> {
     let mut body = String::from("<h1>Blog Posts</h1>");
 
     use crate::schema::posts::dsl::*;
-    let sites = posts
-        .filter(published)
-        .order_by(created.desc())
-        .select((title, url, created))
-        .load(db)?;
+    let sites = if config.preview {
+        posts
+            .order_by(created.desc())
+            .select((title, url, published))
+            .load(db)
+    } else {
+        posts
+            .filter(published.is_not_null())
+            .order_by(created.desc())
+            .select((title, url, published))
+            .load(db)
+    }?;
 
     body += &create_table(&sites);
-    //body += &tag_overview(db)?;
-
     body += &crate::polyring::BANNER;
+
+    let dates = sites.into_iter().map(|p| p.2).flatten().collect::<Vec<_>>();
 
     let page = format!(
         include_str!("skeleton.html"),
         title = "Overview",
         body = body,
         bottom_navigation = "",
-        copyright = copyright_years(&sites.last().unwrap().2, &sites.first().unwrap().2)
+        copyright = copyright_years(&dates.last().unwrap(), &dates.first().unwrap())
     );
 
     Ok(page)
 }
 
-fn create_table(posts: &[(String, String, NaiveDateTime)]) -> String {
+fn create_table(posts: &[(String, String, Option<NaiveDateTime>)]) -> String {
     let mut body = String::from("<hr>");
     body += r#"<table class="post-list">"#;
     body += "<th>Post</th><th>Date</th>";
@@ -186,7 +195,10 @@ fn create_table(posts: &[(String, String, NaiveDateTime)]) -> String {
             r#"<tr><td><a href="{}">{}</a></td><td>{}</td></tr>"#,
             PageKind::Post.url_of(&url),
             &title,
-            created.date().format("%d-%m-%Y")
+            created.map_or("preview".to_string(), |c| c
+                .date()
+                .format("%d-%m-%Y")
+                .to_string())
         );
     }
     body += "</table><hr>";
@@ -202,10 +214,10 @@ pub fn tag(name: &str, db: &PgConnection) -> AResult<String> {
     use crate::schema::tags_meta::dsl as m;
     let sites = t::tags
         .inner_join(p::posts.on(p::url.eq(t::url)))
-        .filter(p::published)
+        .filter(p::published.is_not_null())
         .filter(t::tag.eq(name))
         .order_by(p::created.desc())
-        .select((p::title, p::url, p::created))
+        .select((p::title, p::url, p::published))
         .load(db)?;
 
     let description = m::tags_meta

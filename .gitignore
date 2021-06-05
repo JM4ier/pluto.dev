@@ -2,5 +2,6 @@
 .env
 /html
 /blog
+/static_html/res
 *.md
 config.json

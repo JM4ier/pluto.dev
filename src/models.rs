@@ -9,10 +9,10 @@ pub struct Post {
     pub url: String,
     pub title: String,
     pub version: String,
-    pub published: bool,
     pub created: NaiveDateTime,
     pub updated: NaiveDateTime,
     pub content: String,
+    pub published: Option<NaiveDateTime>,
 }
 
 pub fn now() -> NaiveDateTime {

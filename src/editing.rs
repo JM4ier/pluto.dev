@@ -53,7 +53,7 @@ impl Post {
             meta: PostMeta {
                 title: post.title,
                 version: post.version,
-                published: post.published,
+                published: post.published.is_some(),
                 tags,
             },
             content: post.content,
@@ -63,14 +63,29 @@ impl Post {
     pub fn write_to_db(self, name: &str, db: &PgConnection) -> AResult<()> {
         let orig_post = models::Post::load_from_db(name, db);
 
+        let published = orig_post
+            .as_ref()
+            .ok()
+            .map(|p| p.published)
+            .flatten()
+            .unwrap_or(models::now());
+        let published = if self.meta.published {
+            Some(published)
+        } else {
+            None
+        };
+
         let edited = models::Post {
             url: name.into(),
-            created: orig_post.map(|p| p.created).unwrap_or(models::now()),
+            created: orig_post
+                .as_ref()
+                .map(|p| p.created)
+                .unwrap_or(models::now()),
             updated: models::now(),
             title: self.meta.title,
             version: self.meta.version,
-            published: self.meta.published,
             content: self.content,
+            published,
         };
 
         use diesel::dsl::*;
